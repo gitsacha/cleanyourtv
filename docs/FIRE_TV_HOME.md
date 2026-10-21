@@ -104,6 +104,45 @@ resume. Keep the stock launcher enabled. Validate real-remote Home, Back, cold
 boot and intentional stock-Home use on each device. This integration has not
 been tested on Nokia hardware.
 
+## Remote buttons (optional)
+
+Fire OS handles the remote's branded buttons (Prime Video, Amazon Music, a TV
+maker's app) before any accessibility key filter sees them. On a TCL 58S571F
+(Fire OS 8), InputKeyService never received the Music button (scancode 747)
+while Fire OS opened its app. What Fire OS does leave behind is the launch
+itself: each button starts the Appstore's `AppLaunchActivity` with a fixed
+`amzns://` URI, from the system uid, and it shows up in the TV's own log.
+
+`fire_tv_button_routes` in `values/config.xml` maps those launches to other
+apps, one `source|package` per item. The source is the URI the button sends,
+or the component it starts directly when its app is installed:
+
+```xml
+<string-array name="fire_tv_button_routes" translatable="false">
+    <item>amzns://apps/android?p=com.amazon.bueller.music|com.spotify.tv.android</item>
+    <item>amzns://apps/android?asin=B0CQF8SRMM|org.smarttube.stable</item>
+</string-array>
+```
+
+To find a button's source, watch the log and press it:
+`tools/tv.py 'logcat -c; sleep 8; logcat -d -s ActivityTaskManager:I | grep "START u0"'`.
+Use the line that says `from uid 1000`. A button can log two lines (Prime
+Video logs the Appstore request and the app's own start); route both to the
+same package and the second is ignored.
+
+This needs `READ_LOGS`, which Android only grants over ADB:
+`tools/tv.py 'pm grant com.gathin.tvhome android.permission.READ_LOGS'`, then
+disable and re-enable **Home redirect** in Accessibility. With no routes or
+no grant, nothing reads the log. With both, a `logcat` process filtered to
+`ActivityTaskManager` runs while the service is bound. Lines are matched in
+memory and dropped; only system-uid launches that exactly match a route act.
+Amazon's app may still open for a moment before the routed one replaces it.
+On the TCL the routed app was started 23 to 82 ms after the button's launch
+line.
+
+To undo, empty the array, or revoke the grant with
+`pm revoke com.gathin.tvhome android.permission.READ_LOGS`.
+
 ## Return to Amazon Home
 
 In **Choose default home**, select **Use Amazon Home**. A local off switch is

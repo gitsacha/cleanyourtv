@@ -14,6 +14,10 @@
          FINE" rule does not apply here. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
         tools:ignore="CoarseFineLocation" />
+    <!-- Fire TV remote buttons (fire_tv_button_routes): HomeRedirectService reads the system's activity
+         starts from the TV's own log. Only granted by hand over adb (pm grant); unused when no routes are set. -->
+    <uses-permission android:name="android.permission.READ_LOGS"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- Android 11+ package visibility: lets the launcher list the TV apps it shows as tiles, and the
          apps that declare a module card (docs/specs/card.md). -->

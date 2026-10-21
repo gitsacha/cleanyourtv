@@ -1,5 +1,6 @@
 package com.gathin.tvhome;
 
+import android.Manifest;
 import android.accessibilityservice.AccessibilityService;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -24,6 +25,9 @@ public final class HomeRedirectService extends AccessibilityService {
     private static volatile boolean bound;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private FireTvHomePolicy policy;
+    private FireTvButtonRoutes buttons;
+    private String lastButton;
+    private long lastButtonAt;
     private final Runnable redirect = () -> {
         if (!bound || policy == null || !policy.request(enabled(this), SystemClock.elapsedRealtime())) return;
         Intent home = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
@@ -120,6 +124,28 @@ public final class HomeRedirectService extends AccessibilityService {
         policy = new FireTvHomePolicy(stockPackage, homeClasses(this, stockPackage));
         bound = available(this);
         Log.i("FireTvHome", bound ? "Home service bound" : "No supported stock Home installed");
+        startButtons();
+    }
+
+    /** Fire OS remote buttons: only with routes in config.xml and READ_LOGS granted over adb. */
+    private void startButtons() {
+        if (buttons != null) buttons.stop();
+        buttons = null;
+        FireTvButtonRoutes routes = new FireTvButtonRoutes(getResources().getStringArray(R.array.fire_tv_button_routes));
+        if (routes.isEmpty() || checkSelfPermission(Manifest.permission.READ_LOGS) != PackageManager.PERMISSION_GRANTED) return;
+        buttons = routes;
+        buttons.start(handler, pkg -> {
+            // One press can log both the Appstore request and the app's own start.
+            long now = SystemClock.uptimeMillis();
+            if (pkg.equals(lastButton) && now - lastButtonAt < 500) return;
+            lastButton = pkg;
+            lastButtonAt = now;
+            Intent app = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+            if (app == null) return;
+            Log.i("FireTvHome", "Remote button: opening " + pkg);
+            try { startActivity(app.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+            catch (RuntimeException refused) { Log.w("FireTvHome", "Remote button refused", refused); }
+        });
     }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -135,11 +161,13 @@ public final class HomeRedirectService extends AccessibilityService {
     @Override public void onInterrupt() { handler.removeCallbacks(redirect); }
     @Override public boolean onUnbind(Intent intent) {
         bound = false;
+        if (buttons != null) buttons.stop();
         handler.removeCallbacks(redirect);
         return super.onUnbind(intent);
     }
     @Override public void onDestroy() {
         bound = false;
+        if (buttons != null) buttons.stop();
         handler.removeCallbacks(redirect);
         super.onDestroy();
     }

@@ -18,6 +18,14 @@
         <item>com.amazon.tv.launcher.ui.HomeActivity</item>
     </string-array>
 
+    <!-- Fire TV remote buttons, "source|package": the button whose system launch matches source opens
+         package instead. Source is the Appstore URI the button sends (amzns://...) or, for a button whose app
+         starts directly, its component. Needs Home redirect bound and READ_LOGS granted over adb.
+         Empty leaves every button alone. See docs/FIRE_TV_HOME.md. Example, TCL 58S571F (Fire OS 8):
+         amzns://apps/android?p=com.amazon.bueller.music|com.spotify.tv.android  (Music)
+         amzns://apps/android?asin=B0CQF8SRMM|org.smarttube.stable                (TCL TV) -->
+    <string-array name="fire_tv_button_routes" translatable="false"></string-array>
+
     <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
     <string-array name="dock_apps">
         <item>com.netflix.ninja</item>
